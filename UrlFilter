@@ -14,21 +14,15 @@ public class UrlFilter implements Filter {
     @Override
     public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain filterChain) throws IOException, ServletException {
         HttpServletRequest r = (HttpServletRequest)servletRequest;
-        String uri = r.getRequestURI().toLowerCase();
+        String uri = r.getRequestURI()==null ? "" : r.getRequestURI().toLowerCase();
 
         String[] products = new String[]{"SJ","U1"};
         for (String product:products) {
             String productRootPath = "/"+product.toLowerCase();
 
-            boolean isRoot = "/".equalsIgnoreCase(uri) || uri==null || uri.length() == 0;
+            boolean isRoot = "/".equalsIgnoreCase(uri) || uri.length() == 0;
             boolean isProductRoot = productRootPath.equalsIgnoreCase(uri) || (productRootPath+"/").equalsIgnoreCase(uri);
             boolean isProductBase = uri.startsWith(productRootPath+"/");
-            boolean isrmib = uri.endsWith("/rmib");
-            boolean isResource = uri.endsWith(".do")
-                    || uri.startsWith(productRootPath+"/css")
-                    || uri.startsWith(productRootPath+"/js")
-                    || uri.startsWith(productRootPath+"/theme")
-                    || uri.startsWith(productRootPath+"/image");
 
             if(isRoot){
                 servletRequest.getRequestDispatcher("/index.do").forward(r,servletResponse);
@@ -40,40 +34,31 @@ public class UrlFilter implements Filter {
                 return;
             }
             else if (isProductBase){
+                r.setAttribute("product", product);
+
+                boolean isrmib = uri.endsWith("/rmib");
+                boolean isResource = uri.endsWith(".do")
+                        || uri.startsWith(productRootPath+"/css")
+                        || uri.startsWith(productRootPath+"/js")
+                        || uri.startsWith(productRootPath+"/theme")
+                        || uri.startsWith(productRootPath+"/image");
+
                 if(isrmib) {
-                    r.setAttribute("product", product);
                     servletRequest.getRequestDispatcher("/rmib").forward(r, servletResponse);
                     return;
                 }
                 else if(isResource){
-                    UrlServletRequestWrapper wrapper = new UrlServletRequestWrapper(r, product);
-                    filterChain.doFilter(wrapper, servletResponse);
+                    servletRequest.getRequestDispatcher(r.getRequestURI().substring(productRootPath.length())).forward(r,servletResponse);
                     return;
                 }
             }
-
-            filterChain.doFilter(servletRequest, servletResponse);
         }
+
+        filterChain.doFilter(servletRequest, servletResponse);
     }
 
     @Override
     public void destroy() {
 
-    }
-
-    public class UrlServletRequestWrapper extends HttpServletRequestWrapper{
-        private String product;
-
-        public UrlServletRequestWrapper(HttpServletRequest request, String product) {
-            super(request);
-
-            this.product = product;
-        }
-
-        @Override
-        public String getServletPath() {
-            String s = "/"+this.product;
-            return super.getServletPath().substring(s.length());
-        }
     }
 }
