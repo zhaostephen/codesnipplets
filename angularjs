@@ -1,0 +1,180 @@
+//logger.js
+
+(function(){
+	'use strict';
+
+	angular.module('common').factory('logger', ['$log', function(){
+		var s = {
+			getLogFn: getLogFn,
+			log: log,
+			logError: logError,
+			logSuccess: logSuccess,
+			logWarning: logWarning,
+			getErrorMessage: getErrorMessage
+		};
+
+		return s;
+
+		function getLogFn(moduleId, fnName){
+			fnName = fnName || log;
+
+			switch(fnName.toLowerCase()){
+				case 'success': fnName = 'logSuccess'; break;
+				case 'error': fnName = 'logError';break;
+				case 'warning':
+				case 'warn': fnName = 'logWarning'; break;
+			}
+
+			var logFn = s[fnName] || s.log;
+			return function(msg, data, showToast){
+				logFn(msg, data, moduleeId, (showToast===undefined) ? true : showToast);
+			}
+		}
+		function log(message, data, source, showToast){
+			logIt(message, data, source, showToast,'info');
+		}
+		function logError(message, data, source, showToast){
+			logIt(message, data, source, showToast,'error');
+
+		}
+		function logSuccess(message, data, source, showToast){
+			logIt(message, data, source, showToast,'success');
+		}
+		function logWarning(message, data, source, showToast){
+			logIt(message, data, source, showToast,'warning');
+		}
+
+		function getErrorMessage(r){
+			return r.error || r.Message || (r.data && (r.data.ExceptionMessage || r.data.error || r.data)) || (angular.isString(r)?r:'');
+		}
+
+		function logIt(message, data, source, showToast, toastType){
+			var write = toastType==='error' ? $log.error : $log.log;
+			source = source ? '['+source+']' : '';
+			write(source, message, data);
+			if(showToast){
+				if(toastType==='error'){
+					toastr.error(message);
+				}
+				else if(toastType === 'warning'){
+					toastr.warning(message);
+				}
+				else if(toastType === 'success'){
+					toastr.success(message);
+				}
+				else{
+					toastr.info(message);
+				}
+			}
+		};
+	}])
+})();
+
+//common.js
+(function(){
+	'use strict';
+
+	var commonModule = angular.module('common', []);
+
+	commonModule.provider('commonConfig', function(){
+		this.config = {
+			controllerActivateSuccessEvent:''
+		};
+
+		this.$get = function(){
+			return {
+				Config: this.config;
+			}
+		}
+	});
+
+	commonModule.factory('common', ['$q','$rootScope','$timeout','commonConfig','logger', 
+		function($q,$rootScope,$timeout,commonConfig,logger){
+			return {
+				$broadcast:$broadcast,
+				activateController:activateController,
+				logger:logger
+			};
+
+			function activateController(promises, controllerId){
+				var r = $q.all(promises).then(function(){
+					var data = {controllerId:controllerId};
+					$broadcast(commonConfig.config.controllerActivateSuccessEvent, data);
+				});
+			}
+
+			function $broadcast(){
+				return $rootScope.$broadcast.apply($rootScope, arguments);
+			}
+		}]);
+}());
+
+//app.js
+(function(){
+	'use strict';
+
+	var app = angular.module('app', [
+		'common',
+		
+		'ngRoute',
+		'ngResource',
+		'ui.router',
+		'ngCookies',
+		'ui.boostrap'
+		]);
+
+	app.run(['$route', function($route){
+		$route.reload();
+	}])
+}());
+
+//config.js
+(function(){
+	'use strict';
+
+	var app = angular.module('app');
+
+	var config = {
+		events:{
+			controllerActivateSuccessEvent:'controller.activateSuccess'
+		}
+	};
+
+	app.value('config', config);
+
+	app.config(['$compileProvider',function() {
+		$compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|ftp|mailto|tel|file|sms):/);
+	}]);
+
+	app.config(['$httpProvider',function($httpProvider) {
+		//$httpProvider.defaults.withCredentials = true;
+		//$httpProvider.defaults.cache = false;
+	}]);
+
+	app.config(['$logProvider',function($logProvider) {
+		if($logProvider.debugEnabled)
+			$logProvider.debugEnabled(true);
+	}]);
+
+	app.config(['commonConfigProvider',function(commonConfigProvider) {
+		commonConfigProvider.config.controllerActivateSuccessEvent = config.events.controllerActivateSuccessEvent;
+	}]);
+
+	//app.constant('name', value)
+}());
+
+//config.route.js
+(function(){
+	'use strict';
+
+	app.config(['$stateProvider','$urlRouterProvider',function($sateProvider, $urlRouterProvider) {
+		$urlRouterProvider.otherwise('/');
+
+		$stateProvider.state('index',{
+			url:'/',
+			templateUrl:'app/index/index.html',
+			controller:'ctt'
+		})
+	}])
+}());
+
