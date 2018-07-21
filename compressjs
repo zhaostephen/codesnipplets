@@ -1,0 +1,13 @@
+serveletx.xml    
+   =====================================
+    <mvc:resources mapping="/**/*.js" location="/">
+        <mvc:resource-chain resource-cache="true">
+            <mvc:resolvers>
+                <bean class="org.springframework.web.servlet.resource.GzipResourceResolver"/>
+            </mvc:resolvers>
+        </mvc:resource-chain>
+    </mvc:resources>
+    
+    
+grunt gzip js files
+=====================
